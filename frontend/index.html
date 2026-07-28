@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Dubbing Studio</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">🎙️</span><span>AI Dubbing Studio</span></div>
+  <nav class="tabs">
+    <button class="tab active" data-view="projects">Projects</button>
+    <button class="tab" data-view="editor">Editor</button>
+    <button class="tab" data-view="voices">Voice Studio</button>
+    <button class="tab" data-view="system">System</button>
+  </nav>
+  <div class="status" id="engineStatus" title="Active engines">…</div>
+</header>
+
+<main>
+  <!-- ================= PROJECTS ================= -->
+  <section class="view active" id="view-projects">
+    <div class="grid-2">
+      <div class="card">
+        <h2>New dubbing project</h2>
+        <form id="uploadForm">
+          <label class="dropzone" id="dropzone">
+            <input type="file" id="fileInput" accept="audio/*,video/*" hidden />
+            <div class="dz-inner">
+              <strong id="dzTitle">Drop audio or video here</strong>
+              <span id="dzHint">or click to browse · WAV always works, other formats need ffmpeg</span>
+            </div>
+          </label>
+          <div class="row">
+            <label>Project name<input type="text" id="projName" placeholder="Episode 12" /></label>
+          </div>
+          <div class="row">
+            <label>Source language
+              <select id="srcLang"><option value="auto">Auto-detect</option></select>
+            </label>
+            <label>Target language
+              <select id="tgtLang"></select>
+            </label>
+          </div>
+          <details class="advanced">
+            <summary>Pipeline options</summary>
+            <div class="row">
+              <label class="check"><input type="checkbox" id="optSeparate" checked /> Split background music (stem separation)</label>
+              <label class="check"><input type="checkbox" id="optClone" checked /> Clone each speaker's voice (cross-lingual)</label>
+            </div>
+            <div class="row">
+              <label class="check"><input type="checkbox" id="optDuck" checked /> Duck background under speech</label>
+              <label>Max speakers<input type="number" id="optSpeakers" value="6" min="1" max="12" /></label>
+            </div>
+            <label>Known script (optional — skips ASR and aligns this text)
+              <textarea id="optScript" rows="3" placeholder="Paste the transcript if you already have it."></textarea>
+            </label>
+          </details>
+          <button class="primary" type="submit" id="uploadBtn">Create &amp; start dubbing</button>
+        </form>
+        <div id="uploadMsg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <h2>Your projects</h2>
+        <div id="projectList" class="list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= EDITOR ================= -->
+  <section class="view" id="view-editor">
+    <div id="editorEmpty" class="empty">Select a project from the Projects tab to start editing.</div>
+    <div id="editorBody" hidden>
+      <div class="editor-head">
+        <div>
+          <h2 id="edTitle">—</h2>
+          <div class="sub" id="edSub"></div>
+        </div>
+        <div class="actions">
+          <select id="edTarget" title="Target language"></select>
+          <button id="btnRerender" class="primary">Re-render</button>
+          <button id="btnRedub">Full re-dub</button>
+          <button id="btnCancel" class="ghost" hidden>Cancel</button>
+        </div>
+      </div>
+
+      <div class="progress-wrap" id="progressWrap" hidden>
+        <div class="progress-head">
+          <span id="progressStep">Working…</span><span id="progressPct">0%</span>
+        </div>
+        <div class="progress"><div class="bar" id="progressBar"></div></div>
+        <div class="log" id="progressLog"></div>
+      </div>
+
+      <div class="card timeline-card">
+        <div class="timeline-head">
+          <div class="transport">
+            <button id="btnPlay" class="icon" title="Play / pause">▶</button>
+            <span class="time" id="timeLabel">0:00 / 0:00</span>
+            <select id="trackSelect" title="Audio to play">
+              <option value="mixed">Dubbed mix</option>
+              <option value="original">Original</option>
+              <option value="vocals">Isolated vocals</option>
+              <option value="background">Background only</option>
+              <option value="dubbed">Dubbed speech only</option>
+            </select>
+          </div>
+          <div class="zoom">
+            <label>Zoom<input type="range" id="zoom" min="1" max="20" value="1" step="0.5" /></label>
+          </div>
+        </div>
+        <canvas id="timeline" height="260"></canvas>
+        <div class="legend" id="legend"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card matrix-card">
+          <h2>Transcript &amp; translation</h2>
+          <div class="matrix-head">
+            <span>Time</span><span>Speaker / voice</span><span>Source</span><span>Target</span>
+          </div>
+          <div id="matrix" class="matrix"></div>
+        </div>
+
+        <div class="card">
+          <h2>Cast</h2>
+          <div id="cast" class="cast"></div>
+          <h2>Mix</h2>
+          <div class="mixer">
+            <label>Speech gain <input type="range" id="mixSpeech" min="0" max="2" step="0.05" value="1" /><output>1.00</output></label>
+            <label>Background <input type="range" id="mixBg" min="0" max="2" step="0.05" value="1" /><output>1.00</output></label>
+            <label>Duck depth <input type="range" id="mixDuck" min="-30" max="0" step="1" value="-11" /><output>-11 dB</output></label>
+            <label>Room tone <input type="range" id="mixReverb" min="0" max="0.6" step="0.01" value="0.1" /><output>0.10</output></label>
+            <label>Global pace <input type="range" id="mixSpeed" min="0.7" max="1.4" step="0.01" value="1" /><output>1.00×</output></label>
+            <label class="check"><input type="checkbox" id="mixOverflow" /> Allow lines to overrun their slot</label>
+          </div>
+          <h2>Export</h2>
+          <div class="exports" id="exports"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= VOICES ================= -->
+  <section class="view" id="view-voices">
+    <div class="grid-2">
+      <div class="card">
+        <h2>Design a voice from a prompt</h2>
+        <label>Archetype presets
+          <select id="archetypeSelect"><option value="">— start from a template —</option></select>
+        </label>
+        <label>Voice description
+          <textarea id="designPrompt" rows="5" placeholder="A young male anime protagonist around 16 years old. High energy, loud, passionate. Raspy, slightly hoarse texture. Upbeat delivery with dynamic pitch variations."></textarea>
+        </label>
+        <div class="hint" id="promptHint"></div>
+        <div class="row">
+          <label>Name<input type="text" id="designName" placeholder="Shounen lead" /></label>
+          <label>Language<select id="designLang"></select></label>
+        </div>
+        <label>Audition line
+          <input type="text" id="designLine" value="Is that all you've got? You'll have to do better than that." />
+        </label>
+        <div class="row">
+          <button id="btnAudition">Audition</button>
+          <button id="btnSaveVoice" class="primary">Save voice</button>
+        </div>
+        <div id="designMsg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <h2>Clone a voice</h2>
+        <p class="hint">5–30 seconds of clean speech is enough for an instant clone. Longer, studio-quality
+          audio produces a professional clone.</p>
+        <label class="dropzone small" id="cloneZone">
+          <input type="file" id="cloneFile" accept="audio/*,video/*" hidden />
+          <div class="dz-inner"><strong id="cloneTitle">Drop a reference recording</strong>
+            <span>or click to browse</span></div>
+        </label>
+        <div class="row">
+          <label>Name<input type="text" id="cloneName" placeholder="My voice" /></label>
+          <label>Type
+            <select id="cloneKind">
+              <option value="instant">Instant / zero-shot</option>
+              <option value="professional">Professional (long-form)</option>
+            </select>
+          </label>
+        </div>
+        <button class="primary" id="btnClone">Create clone</button>
+        <div id="cloneMsg" class="msg"></div>
+
+        <h2>Voice-to-voice</h2>
+        <p class="hint">Re-voice an existing recording, keeping its exact timing and delivery.</p>
+        <div class="row">
+          <label>Target voice<select id="convVoice"></select></label>
+          <label>Strength<input type="range" id="convStrength" min="0" max="1" step="0.05" value="1" /></label>
+        </div>
+        <label class="dropzone small" id="convZone">
+          <input type="file" id="convFile" accept="audio/*,video/*" hidden />
+          <div class="dz-inner"><strong id="convTitle">Drop audio to convert</strong><span>or click to browse</span></div>
+        </label>
+        <button id="btnConvert">Convert</button>
+        <div id="convMsg" class="msg"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="voices-head">
+        <h2>Voice bank</h2>
+        <input type="search" id="voiceSearch" placeholder="Search voices, tags, prompts…" />
+      </div>
+      <div id="voiceGrid" class="voice-grid"></div>
+    </div>
+  </section>
+
+  <!-- ================= SYSTEM ================= -->
+  <section class="view" id="view-system">
+    <div class="card">
+      <h2>Engines</h2>
+      <p class="hint">The platform picks the best locally-installed engine for each stage and always
+        falls back to a built-in offline implementation, so it runs with zero downloads.</p>
+      <div id="systemInfo"></div>
+    </div>
+  </section>
+</main>
+
+<audio id="player"></audio>
+<div id="toast" class="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
