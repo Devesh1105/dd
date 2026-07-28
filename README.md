@@ -1,9 +1,12 @@
 # AI Dubbing & Voice Platform
 
-A complete, **local-first** dubbing studio: upload media, and it separates the
+A complete, **local-first** dubbing studio *and* a 3D voice companion: upload media, and it separates the
 background music, detects who spoke when, transcribes, translates with length
 control, clones or designs the voices, synthesises the dub, fits every line
 back into its original timestamp, and re-mixes it under the original score.
+
+The same voice engine drives a **3D anime companion** that talks back with real
+lip-sync, expressions and per-character personas.
 
 It runs on a laptop with **no GPU, no API keys and no model downloads** — every
 stage has a working offline implementation. Install Whisper, XTTS, Demucs or
@@ -40,7 +43,7 @@ python -m uvicorn backend.app.main:app --port 8000
 Tests:
 
 ```bash
-python -m pytest tests -q                          # 25 tests, ~15s, no network
+python -m pytest tests -q                          # 38 tests, ~12s, no network
 ```
 
 > **ffmpeg is optional.** Without it the platform works on WAV files only.
@@ -72,7 +75,7 @@ style:
 }
 ```
 
-Thirteen emotion modifiers (`shouting`, `whisper`, `laughing`, `crying`,
+Fourteen emotion modifiers (`shouting`, `whisper`, `laughing`, `crying`,
 `sarcastic`, `menacing`, …) apply per line without re-creating the voice.
 
 ### Pipeline features
@@ -97,10 +100,59 @@ Thirteen emotion modifiers (`shouting`, `whisper`, `laughing`, `crying`,
 
 ---
 
+## 3D companion
+
+The **Companion** tab renders a toon-shaded anime character in raw WebGL — no
+three.js, no CDN, nothing to install — that speaks in any voice from the voice
+bank, lip-synced to the audio.
+
+Six companions ship built in (tsundere, genki, kuudere, onee-san, shounen,
+gentle narrator), each wired to a matching archetype voice. Appearance (hair
+style and colour, eyes, skin, outfit, blush, height) is editable live and
+saved per character, and you can create your own.
+
+**Lip-sync is real, not a random jaw flap.** The offline synthesiser already
+produces a timed phone sequence, so the companion maps those phones onto twelve
+Preston-Blair mouth shapes and returns the track alongside the audio:
+
+```json
+{ "duration": 1.53,
+  "visemes": [{"t": 0.0, "v": "E", "w": 0.5}, {"t": 0.19, "v": "I", "w": 0.44},
+              {"t": 0.39, "v": "L", "w": 0.35}, {"t": 0.61, "v": "MBP", "w": 0.0}],
+  "audio": "data:audio/wav;base64,..." }
+```
+
+Bilabials close the mouth, vowels open it, and the track is rescaled to the
+audio that actually came back — so it stays correct when a neural TTS provider
+renders the line instead of the built-in engine.
+
+Expressions are driven by the same emotion vocabulary as the dubbing engine, so
+an `angry` reply is both *spoken* and *drawn* angry. Idle animation (breathing,
+weight shift, random blinks), eye tracking toward the cursor, and hair sway run
+continuously.
+
+Chat uses the configured LLM when `OPENAI_API_KEY` is set. Without one, replies
+come from a scripted per-character persona — pattern matching, not a language
+model, and `/api/system` reports `real_chat: false` so it is never mistaken for
+one.
+
+### Renderer design
+
+The body, head and hair are procedural toon-shaded meshes, but **the face is
+drawn every frame into a 2D canvas and uploaded as a texture**. That split is
+deliberate: crisp anime eyes and mouths are far easier to draw in 2D than to
+model, and it turns visemes and expressions into a drawing problem rather than
+a rigging problem. The head sphere's UV seam is placed at the *back* so `u=0.5`
+is dead centre of the face, and the hair shell is the same sphere with the face
+region cut out of its index buffer.
+
+---
+
 ## Architecture
 
 ```
 frontend/                 zero-build SPA (canvas timeline, transcript matrix, WS progress)
+  waifu.js                WebGL companion renderer + Canvas2D face layer
 backend/app/
   main.py                 FastAPI app, static mount, /api/system capability report
   config.py               env-driven settings
@@ -112,10 +164,11 @@ backend/app/
     dsp.py                STFT, VAD, embeddings, WSOLA, separation, mix bus
     synth.py              offline formant synthesiser + voice conversion
   providers/              swappable engines behind one interface per capability
+  companion.py            characters, personas, viseme tracks, chat
   pipeline/orchestrator.py the nine pipeline steps and their job handlers
   core/queue.py           durable async job queue (the local Celery/Temporal stand-in)
   core/events.py          pub/sub feeding WebSocket + SSE
-  api/                    projects, voices, jobs routers
+  api/                    projects, voices, jobs, companion routers
 ```
 
 ### Design decisions worth knowing
@@ -186,6 +239,12 @@ See `requirements-optional.txt`. Check what is live at `GET /api/system` or the
 | `GET` | `/api/projects/{id}/export.srt` | subtitles |
 | `GET` | `/api/voices` · `/archetypes` | voice bank and the prompt library |
 | `POST` | `/api/voices/design` · `/clone` · `/match` · `/{id}/preview` · `/{id}/convert` | voice operations |
+| `GET` | `/api/companion/characters` | companion roster |
+| `POST` | `/api/companion/characters` | create a companion |
+| `POST` | `/api/companion/characters/{id}/say` | audio + viseme track for a line |
+| `POST` | `/api/companion/characters/{id}/chat` | reply, emotion, audio, visemes |
+| `POST` | `/api/companion/characters/{id}/idle` | a spontaneous in-character line |
+| `GET` | `/api/companion/visemes?text=…` | inspect a lip-sync track without audio |
 | `WS` | `/ws/projects/{id}` · `/ws/jobs/{id}` | live progress |
 | `GET` | `/api/jobs/{id}/events` | SSE fallback |
 
@@ -214,4 +273,11 @@ The local components map one-to-one onto their production equivalents:
   the pipeline is testable end-to-end without downloads.
 - Script alignment distributes sentences across detected spans by duration,
   which is an approximation of forced alignment.
-- Lip-sync requires a Wav2Lip checkout; without it audio is muxed unchanged.
+- Video lip-sync (re-rendering a real speaker's mouth) requires a Wav2Lip
+  checkout; without it audio is muxed onto the video unchanged. This is
+  separate from the 3D companion's viseme lip-sync, which always works.
+- Companion chat without an LLM key is scripted pattern matching, not
+  conversation.
+- The companion is a stylised chibi figure built from procedural primitives —
+  it is not a rigged VRM/Live2D model. Its value is that lip-sync, expression
+  and voice are wired to the real engine end to end.

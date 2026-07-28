@@ -14,6 +14,7 @@
     <button class="tab active" data-view="projects">Projects</button>
     <button class="tab" data-view="editor">Editor</button>
     <button class="tab" data-view="voices">Voice Studio</button>
+    <button class="tab" data-view="companion">Companion</button>
     <button class="tab" data-view="system">System</button>
   </nav>
   <div class="status" id="engineStatus" title="Active engines">…</div>
@@ -215,6 +216,99 @@
     </div>
   </section>
 
+  <!-- ================= COMPANION ================= -->
+  <section class="view" id="view-companion">
+    <div class="companion-layout">
+      <div class="card stage-card">
+        <div class="stage" id="stage">
+          <canvas id="waifuCanvas"></canvas>
+          <div class="stage-bubble" id="bubble" hidden></div>
+          <div class="stage-badge" id="stageBadge">neutral</div>
+        </div>
+        <div class="stage-bar">
+          <select id="charSelect" title="Companion"></select>
+          <select id="charEmotion" title="Expression"></select>
+          <button id="btnIdle" title="Say something unprompted">Idle line</button>
+          <button id="btnStopSpeech" class="ghost" hidden>Stop</button>
+        </div>
+      </div>
+
+      <div class="card chat-card">
+        <div class="chat-head">
+          <h2 id="charName">Companion</h2>
+          <button id="btnClearChat" class="small">Clear</button>
+        </div>
+        <div class="chat-log" id="chatLog"></div>
+        <form class="chat-input" id="chatForm">
+          <input type="text" id="chatText" placeholder="Say something…" autocomplete="off" />
+          <button class="primary" type="submit" id="btnSend">Send</button>
+        </form>
+        <div class="hint" id="chatEngineHint"></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>Appearance</h2>
+        <div class="row">
+          <label>Hair style
+            <select id="apHairStyle">
+              <option value="twintails">Twintails</option>
+              <option value="ponytail">Ponytail</option>
+              <option value="long">Long</option>
+              <option value="bob">Bob</option>
+              <option value="short">Short</option>
+            </select>
+          </label>
+          <label>Outfit
+            <select id="apOutfitStyle">
+              <option value="dress">Dress</option>
+              <option value="trousers">Trousers</option>
+            </select>
+          </label>
+          <label>Voice<select id="apVoice"></select></label>
+        </div>
+        <div class="swatches">
+          <label>Hair<input type="color" id="apHairColor" /></label>
+          <label>Eyes<input type="color" id="apEyeColor" /></label>
+          <label>Skin<input type="color" id="apSkinColor" /></label>
+          <label>Outfit<input type="color" id="apOutfitColor" /></label>
+          <label>Accent<input type="color" id="apAccentColor" /></label>
+        </div>
+        <div class="mixer">
+          <label>Eye size <input type="range" id="apEyeSize" min="0.7" max="1.4" step="0.02" /><output></output></label>
+          <label>Blush <input type="range" id="apBlush" min="0" max="1" step="0.02" /><output></output></label>
+          <label>Height <input type="range" id="apHeight" min="0.85" max="1.25" step="0.01" /><output></output></label>
+        </div>
+        <div class="row">
+          <button id="btnSaveAppearance" class="primary">Save to character</button>
+          <button id="btnDeleteChar" class="ghost">Delete character</button>
+        </div>
+        <div id="appearanceMsg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <h2>Create a companion</h2>
+        <div class="row">
+          <label>Name<input type="text" id="newCharName" placeholder="Hikari" /></label>
+          <label>Voice<select id="newCharVoice"></select></label>
+        </div>
+        <label>Persona (used by the LLM when one is configured)
+          <textarea id="newCharPersona" rows="3" placeholder="You are Hikari, a shy but curious companion who loves astronomy. Keep replies under 40 words."></textarea>
+        </label>
+        <label>Greeting<input type="text" id="newCharGreeting" placeholder="O-oh! Hello there." /></label>
+        <button class="primary" id="btnCreateChar">Create companion</button>
+        <div id="newCharMsg" class="msg"></div>
+
+        <h2>Say a line</h2>
+        <p class="hint">Type anything and the companion speaks it with lip-synced visemes —
+          the same phoneme timeline the dubbing engine produces.</p>
+        <label><textarea id="sayText" rows="2">Nice to meet you! I hope we get along.</textarea></label>
+        <button id="btnSay">Speak it</button>
+      </div>
+    </div>
+  </section>
+
   <!-- ================= SYSTEM ================= -->
   <section class="view" id="view-system">
     <div class="card">
@@ -228,6 +322,7 @@
 
 <audio id="player"></audio>
 <div id="toast" class="toast"></div>
+<script src="/static/waifu.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

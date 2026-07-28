@@ -102,6 +102,30 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_project ON jobs(project_id, created_at);
 
+CREATE TABLE IF NOT EXISTS characters (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    voice_id TEXT NOT NULL,
+    persona TEXT DEFAULT '',
+    greeting TEXT DEFAULT '',
+    idle_lines TEXT DEFAULT '[]',
+    appearance TEXT DEFAULT '{}',
+    default_emotion TEXT DEFAULT 'neutral',
+    tags TEXT DEFAULT '[]',
+    owner TEXT DEFAULT 'local',
+    created_at REAL
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id TEXT PRIMARY KEY,
+    character_id TEXT NOT NULL,
+    role TEXT NOT NULL,            -- user | assistant
+    text TEXT NOT NULL,
+    emotion TEXT DEFAULT 'neutral',
+    created_at REAL
+);
+CREATE INDEX IF NOT EXISTS idx_chat_character ON chat_messages(character_id, created_at);
+
 CREATE TABLE IF NOT EXISTS assets (
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL,

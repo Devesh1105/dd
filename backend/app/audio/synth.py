@@ -43,6 +43,7 @@ class Phone:
     noise_center: float = 4000.0
     noise_width: float = 2500.0
     glide_to: tuple[float, float, float] | None = None  # diphthongs
+    name: str = ""                  # inventory key, kept for viseme mapping
 
 
 def _v(f1, f2, f3, dur=0.095, glide=None) -> Phone:
@@ -95,8 +96,8 @@ CONSONANTS: dict[str, Phone] = {
     "jh": Phone(FRIC, 400, 1800, 2600, 0.080, True, 0.46, 0.55, 3200, 2000),
 }
 
-PAUSE_SHORT = Phone(SILENCE, 500, 1500, 2500, 0.055, False, 0.0, 0.0)
-PAUSE_LONG = Phone(SILENCE, 500, 1500, 2500, 0.180, False, 0.0, 0.0)
+PAUSE_SHORT = Phone(SILENCE, 500, 1500, 2500, 0.055, False, 0.0, 0.0, name="_")
+PAUSE_LONG = Phone(SILENCE, 500, 1500, 2500, 0.180, False, 0.0, 0.0, name="_")
 
 # --------------------------------------------------------------------------
 # grapheme -> phone
@@ -195,6 +196,7 @@ def text_to_phones(text: str, speed: float = 1.0) -> list[Phone]:
             if base is None:
                 continue
             p = Phone(**vars(base))
+            p.name = name
             if p.kind == VOWEL:
                 if not vowel_seen and stressed:
                     p.duration *= 1.22
@@ -209,7 +211,7 @@ def text_to_phones(text: str, speed: float = 1.0) -> list[Phone]:
         elif any(c in trailing for c in ",;:—…"):
             seq.append(Phone(**vars(PAUSE_SHORT)))
         elif t_i < len(tokens) - 1:
-            seq.append(Phone(SILENCE, 500, 1500, 2500, 0.030, False, 0.0, 0.0))
+            seq.append(Phone(SILENCE, 500, 1500, 2500, 0.030, False, 0.0, 0.0, name="_"))
 
     inv = 1.0 / max(0.3, speed)
     for p in seq:
