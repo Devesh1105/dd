@@ -1,0 +1,10 @@
+# Core — everything the platform needs to run locally.
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9
+numpy>=1.24
+pydantic>=2.5
+
+# Tests
+pytest>=8.0
+httpx>=0.26
