@@ -94,7 +94,6 @@ EMOTIONS: dict[str, dict[str, float]] = {
     "fearful": {"f0": 24, "tremor": 0.3, "speed": 0.12, "breathiness": 0.2},
     "calm": {"f0": -6, "f0_range": -0.05, "speed": -0.08, "energy": -0.08},
     "menacing": {"f0": -18, "energy": 0.1, "growl": 0.3, "speed": -0.12, "brightness": -0.15},
-    "flustered": {"f0": 20, "f0_range": 0.24, "speed": 0.1, "tremor": 0.16, "breathiness": 0.1},
 }
 
 # --------------------------------------------------------------------------

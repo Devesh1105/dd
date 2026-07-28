@@ -13,8 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import companion, db, voicebank
-from .api import companion as companion_api
+from . import db, voicebank
 from .api import jobs as jobs_api
 from .api import projects as projects_api
 from .api import voices as voices_api
@@ -34,9 +33,6 @@ async def lifespan(app: FastAPI):
     seeded = voicebank.ensure_presets()
     if seeded:
         print(f"[dubbing] seeded {seeded} preset voices")
-    seeded_chars = companion.ensure_characters()
-    if seeded_chars:
-        print(f"[dubbing] seeded {seeded_chars} companion characters")
     await manager.start()
     print(f"[dubbing] ready on http://{settings.host}:{settings.port}")
     print(f"[dubbing] providers: asr={registry.get('asr', settings.asr_provider).name} "
@@ -70,14 +66,12 @@ app.add_middleware(
 app.include_router(projects_api.router)
 app.include_router(voices_api.router)
 app.include_router(jobs_api.router)
-app.include_router(companion_api.router)
 
 
 @app.get("/api/system", tags=["system"])
 def system_info() -> dict[str, Any]:
     """What this installation can actually do right now."""
     from .providers.translate import CHARS_PER_SECOND, EXPANSION, LANGUAGE_NAMES
-    from .voice_design import EMOTIONS
 
     active = {}
     for capability, configured in (("asr", settings.asr_provider), ("mt", settings.mt_provider),
@@ -105,10 +99,7 @@ def system_info() -> dict[str, Any]:
             "real_translation": active.get("mt") != "passthrough",
             "real_asr": active.get("asr") != "offline",
             "neural_tts": active.get("tts") != "local_formant",
-            "real_chat": bool(settings.openai_api_key),
-            "lipsync_visemes": True,
         },
-        "emotions": ["neutral"] + sorted(e for e in EMOTIONS if e != "neutral"),
     }
 
 
